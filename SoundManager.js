@@ -9,12 +9,13 @@ class SoundManager {
         this.buffers = {};
         this.sources = {};
 
-        // Define paths for High Quality Standard Assets
+        // Define paths for High Quality OpenGameArt Assets
         this.assets = {
-            'bgm': 'audio/battle_theme.ogg', // or .mp3
-            'win': 'audio/win_fanfare.mp3',
-            'cheer': 'audio/crowd_cheer.mp3',
-            'roar': 'audio/roar.mp3'
+            'bgm': 'audio/battle_theme.ogg',
+            'win': 'audio/win_fanfare.wav',
+            'cheer': 'audio/crowd_cheer.wav',
+            'roar': 'audio/roar.wav',
+            'hit_heavy': 'audio/hit_heavy.wav'
         };
     }
 
@@ -112,7 +113,7 @@ class SoundManager {
     stopBGM() {
         // Stop Buffer
         if (this.sources['bgm']) {
-            this.sources['bgm].stop();
+            this.sources['bgm'].stop();
             this.sources['bgm'] = null;
         }
         // Stop Synth Timer
