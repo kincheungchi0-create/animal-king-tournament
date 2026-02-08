@@ -1,0 +1,157 @@
+/* SPACE ACTON BATTLE CSS */
+
+/* Reuse background */
+body {
+    background-color: #000;
+    color: #fff;
+    font-family: 'Orbitron', 'Arial', sans-serif;
+    overflow: hidden;
+    /* Prevent scroll when moving */
+}
+
+/* Starfield */
+.stars {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    background:
+        radial-gradient(white, rgba(255, 255, 255, .2) 2px, transparent 3px),
+        radial-gradient(white, rgba(255, 255, 255, .15) 1px, transparent 2px),
+        radial-gradient(white, rgba(255, 255, 255, .1) 2px, transparent 3px);
+    background-size: 550px 550px, 350px 350px, 250px 250px;
+}
+
+/* THE ARENA */
+#game-stage {
+    position: relative;
+    width: 90%;
+    max-width: 1000px;
+    height: 400px;
+    margin: 80px auto 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(0, 255, 255, 0.3);
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(0, 200, 255, 0.1);
+    overflow: hidden;
+}
+
+/* Floor */
+.stage-floor {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 40px;
+    background: linear-gradient(to bottom, #333, #111);
+    border-top: 1px solid #555;
+}
+
+/* Characters */
+.sprite {
+    position: absolute;
+    bottom: 40px;
+    /* On floor */
+    width: 100px;
+    height: 100px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center bottom;
+    transition: transform 0.1s;
+    filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.4));
+}
+
+.sprite-p1 {
+    /* Player controls left side initially */
+    transform: scaleX(1);
+}
+
+.sprite-p2 {
+    /* Enemy faces left */
+    transform: scaleX(-1);
+}
+
+/* Projectiles */
+.bullet {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    background: radial-gradient(circle, #ffeb3b, #ff5722);
+    border-radius: 50%;
+    box-shadow: 0 0 10px #ff5722;
+    z-index: 10;
+}
+
+.bullet-p2 {
+    background: radial-gradient(circle, #00e5ff, #2979ff);
+    box-shadow: 0 0 10px #2979ff;
+}
+
+/* UI Bars */
+.hud-layer {
+    position: absolute;
+    top: 20px;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 50px;
+    pointer-events: none;
+}
+
+.hud-p1,
+.hud-p2 {
+    width: 40%;
+}
+
+.hp-bar-frame {
+    width: 100%;
+    height: 20px;
+    background: #333;
+    border: 2px solid #fff;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.hp-fill {
+    width: 100%;
+    height: 100%;
+    background: #0f0;
+    transition: width 0.2s;
+}
+
+.hp-fill.danger {
+    background: #f00;
+}
+
+.controls-hint {
+    position: fixed;
+    bottom: 10px;
+    width: 100%;
+    text-align: center;
+    color: #aaa;
+    font-size: 0.9rem;
+}
+
+/* Explosion */
+.explosion {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    background: radial-gradient(circle, white, orange, transparent);
+    border-radius: 50%;
+    opacity: 0;
+    animation: boom 0.3s ease-out;
+}
+
+@keyframes boom {
+    0% {
+        transform: scale(0.5);
+        opacity: 1;
+    }
+
+    100% {
+        transform: scale(2);
+        opacity: 0;
+    }
+}

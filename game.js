@@ -1,30 +1,49 @@
-// ANIMAL KING TOURNAMENT - GAME ENGINE
-// Version: Space Battlefire Edition
+// ANIMAL KING TOURNAMENT - REAL-TIME BATTLE ENGINE
+// Version: Space Action Platformer
 
 const GameState = {
+    // Nav
     currentScreen: 'main-menu',
-    champion: null,
-    challenger: null,
-    championCurrentHP: 0,
-    challengerCurrentHP: 0,
-    isChampionTurn: true,
-    battleInProgress: false,
-    qteTimer: null,
-    defenderMultiplier: 1.0,
 
+    // Tournament Data
     tournament: {
         fighters: [],
         currentRound: [],
         roundIndex: 0,
         currentMatchIndex: 0
-    }
+    },
+
+    // Real-Time Battle State
+    battleActive: false,
+    width: 1000,
+    height: 400, // Arena dimensions logic (not pixels)
+
+    player: {
+        x: 100, y: 0, w: 80, h: 80,
+        hp: 100, maxHp: 100, cd: 0,
+        img: null, name: 'Player'
+    },
+    enemy: {
+        x: 800, y: 0, w: 80, h: 80,
+        hp: 100, maxHp: 100, cd: 0,
+        img: null, name: 'Enemy',
+        moveTimer: 0, logicTimer: 0
+    },
+    ullets: [], // Projectiles
+
+    // Input
+    keys: { left: false, right: false, space: false }
 };
 
 const ROUND_NAMES = ["ROUND OF 16", "QUARTER FINALS", "SEMI FINALS", "GRAND FINAL"];
+const MOVE_SPEED = 5;
+const BULLET_SPEED = 12;
+const FIRE_COOLDOWN = 30; // Frames (approx 0.5s)
 
+// --- BOOTSTRAP ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Inject Styles, including new space theme
-    ['tournament.css', 'space.css'].forEach(href => {
+    // Inject Styles
+    ['tournament.css', 'space_arena.css'].forEach(href => {
         if (!document.querySelector(`link[href="${href}"]`)) {
             const link = document.createElement('link');
             link.rel = 'stylesheet';
@@ -33,39 +52,29 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Global Anim Styles
-    const style = document.createElement('style');
-    style.innerHTML = `
-        @keyframes flash { 0% { opacity: 0.8; } 100% { opacity: 0; } }
-        .flash-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: white; pointer-events: none; z-index: 9999;
-            animation: flash 0.5s ease-out forwards;
-        }
-    `;
-    document.head.appendChild(style);
-
-    initParticles();
     initEventListeners();
-    renderCollectionGrid();
 
-    const muteBtn = document.getElementById('mute-btn');
-    if (muteBtn) {
-        muteBtn.addEventListener('click', () => {
-            if (window.audioManager) {
-                const isMuted = window.audioManager.toggleMute();
-                muteBtn.textContent = isMuted ? '🔇' : '🔊';
-            }
-        });
-    }
+    // Input Handlers
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft') GameState.keys.left = true;
+        if (e.key === 'ArrowRight') GameState.keys.right = true;
+        if (e.code === 'Space') GameState.keys.space = true;
+    });
+    window.addEventListener('keyup', (e) => {
+        if (e.key === 'ArrowLeft') GameState.keys.left = false;
+        if (e.key === 'ArrowRight') GameState.keys.right = false;
+        if (e.code === 'Space') GameState.keys.space = false;
+    });
 
+    // Text Updates
     const title = document.querySelector('#main-menu h1');
-    if (title) title.textContent = "ANIMAL KING SPACE CUP";
+    if (title) title.textContent = "ANIMAL KING SPACE ACTION";
     const sub = document.querySelector('#main-menu .subtitle');
-    if (sub) sub.textContent = "Interactive Hyper-Battles in Zero-G.";
+    if (sub) sub.textContent = "Real-Time Combat: Arrows to Move, Space to Shoot!";
     const btn = document.getElementById('btn-start');
-    if (btn) btn.innerHTML = "🚀 LAUNCH ARENA 🔊";
+    if (btn) btn.innerHTML = "🚀 LAUNCH GAME 🔊";
 
+    // Setup Tournament Screen
     if (!document.getElementById('tournament-screen')) {
         const ts = document.createElement('div');
         ts.id = 'tournament-screen';
@@ -77,31 +86,13 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <div id="match-grid" class="match-grid"></div>
             <div class="tournament-controls">
-                <button id="btn-next-match" class="next-match-btn">ENGAGE ⚔️</button>
+                <button id="btn-next-match" class="next-match-btn">ENTER ARENA ⚔️</button>
             </div>
         `;
         document.getElementById('app').appendChild(ts);
         document.getElementById('btn-next-match').addEventListener('click', startCurrentMatch);
     }
 });
-
-function initParticles() {
-    const particlesContainer = document.getElementById('particles');
-    if (!particlesContainer) return;
-    particlesContainer.innerHTML = '';
-    for (let i = 0; i < 60; i++) {
-        const particle = document.createElement('div');
-        particle.className = 'particle';
-        particle.style.left = Math.random() * 100 + '%';
-        particle.style.top = Math.random() * 100 + '%';
-        particle.style.width = Math.random() * 3 + 'px';
-        particle.style.height = particle.style.width;
-        particle.style.background = '#fff';
-        particle.style.opacity = Math.random() * 0.9;
-        particle.style.animationDuration = (30 + Math.random() * 30) + 's';
-        particlesContainer.appendChild(particle);
-    }
-}
 
 function initEventListeners() {
     const attach = (id, fn) => {
@@ -112,10 +103,8 @@ function initEventListeners() {
         if (window.audioManager) window.audioManager.init();
         initTournament();
     });
-    attach('btn-collection', () => showScreen('collection-screen'));
-    attach('btn-back-collection', () => showScreen('main-menu'));
     attach('btn-menu', () => {
-        hideModal();
+        GameState.battleActive = false;
         showScreen('main-menu');
     });
 }
@@ -134,7 +123,7 @@ function showScreen(screenId) {
     GameState.currentScreen = screenId;
 }
 
-// --- TOURNAMENT CORE ---
+// --- TOURNAMENT LOGIC (Mostly Unchanged) ---
 
 function initTournament() {
     if (window.audioManager) {
@@ -156,8 +145,7 @@ function generateUnknownRound(participants) {
     for (let i = 0; i < participants.length; i += 2) {
         matches.push({
             id: matches.length + 1,
-            p1: participants[i], p2: participants[i + 1],
-            winner: null, status: 'pending'
+            p1: participants[i], p2: participants[i + 1], winner: null, status: 'pending'
         });
     }
     GameState.tournament.currentRound = matches;
@@ -217,7 +205,7 @@ function renderMiniFighter(fighter, isWinner) {
         </div>`;
 }
 
-// --- BATTLE ---
+// --- REAL-TIME BATTLE ENGINE ---
 
 function startCurrentMatch() {
     const t = GameState.tournament;
@@ -225,239 +213,219 @@ function startCurrentMatch() {
     const match = t.currentRound[t.currentMatchIndex];
     if (match.status === 'completed') return;
 
+    // init state
+    GameState.player.hp = 100;
+    GameState.player.img = match.p1.image;
+    GameState.player.name = match.p1.name;
+    GameState.player.x = 100;
+
+    GameState.enemy.hp = 100;
+    GameState.enemy.img = match.p2.image;
+    GameState.enemy.name = match.p2.name;
+    GameState.enemy.x = 800;
+
+    GameState.bullets = [];
+    GameState.battleActive = true;
+
     if (window.audioManager) window.audioManager.play('start');
 
-    GameState.champion = JSON.parse(JSON.stringify(match.p1));
-    GameState.challenger = JSON.parse(JSON.stringify(match.p2));
-    GameState.championCurrentHP = 100;
-    GameState.challengerCurrentHP = 100;
-    GameState.isChampionTurn = Math.random() < 0.5;
-    GameState.battleInProgress = true;
-
-    showScreen('battle-screen');
-    initBattleUI();
-    addBattleLog(`--- MATCH ${t.currentMatchIndex + 1} ---`, 'log-info');
-    setTimeout(startInteractiveTurn, 1500);
-}
-
-function advanceToNextRound() {
-    const t = GameState.tournament;
-    const winners = t.currentRound.map(m => m.winner);
-    t.roundIndex++;
-    generateUnknownRound(winners);
-    updateBracketUI();
-    if (window.audioManager) window.audioManager.play('cheer');
-}
-
-// --- QTE INTERACTION ---
-
-function initBattleUI() {
-    const setInfo = (prefix, fighter) => {
-        const img = document.getElementById(`${prefix}-img`);
-        const name = document.getElementById(`${prefix}-name`);
-        if (img) img.src = fighter.image;
-        if (name) name.textContent = fighter.name;
-    };
-    setInfo('player', GameState.champion);
-    setInfo('enemy', GameState.challenger);
-    updateHP('champion');
-    updateHP('challenger');
-
-    const container = document.getElementById('action-buttons');
-    if (container) container.innerHTML = `<div id="qte-overlay"></div>`;
-    const log = document.getElementById('battle-log');
-    if (log) log.innerHTML = '';
-}
-
-function startInteractiveTurn() {
-    if (!GameState.battleInProgress) return;
-    clearQTE();
-
-    if (GameState.isChampionTurn) {
-        promptQTE('attack', 2000, () => {
-            if (window.audioManager) window.audioManager.play('ui_click');
-            executeTurn('champion', 1.0);
-        }, () => {
-            addBattleLog(`${GameState.champion.name} missed!`, 'log-crit');
-            GameState.isChampionTurn = !GameState.isChampionTurn;
-            setTimeout(startInteractiveTurn, 1500);
-        });
-    } else {
-        promptQTE('defend', 1500, () => {
-            if (window.audioManager) window.audioManager.play('ui_click');
-            addBattleLog(`Blocked! Reduced damage!`, 'log-heal');
-            executeTurn('challenger', 0.5);
-        }, () => {
-            executeTurn('challenger', 1.0);
-        });
+    // Build Arena DOM if needed (replacing battle-screen content or reusing it)
+    const battleScreen = document.getElementById('battle-screen');
+    if (!battleScreen) {
+        const bs = document.createElement('div');
+        bs.id = 'battle-screen';
+        bs.className = 'screen';
+        document.getElementById('app').appendChild(bs);
     }
-}
 
-function promptQTE(type, duration, onSuccess, onFail) {
-    const overlay = document.getElementById('qte-overlay');
-    if (!overlay) return;
-
-    overlay.innerHTML = `
-        <button id="qte-btn" class="qte-btn btn-${type}">
-            ${type === 'attack' ? '🔥 FIREBALL!' : '🛡️ DEFEND!'}
-        </button>
-        <div class="timer-bar">
-            <div id="qte-timer" class="timer-fill" style="transition: width ${duration}ms linear; width: 100%;"></div>
+    const bs = document.getElementById('battle-screen');
+    bs.innerHTML = `
+        <div id="game-stage">
+            <div class="stars"></div>
+            <div class="hud-layer">
+                <div class="hud-p1">
+                    <div style="margin-bottom:5px;">${GameState.player.name}</div>
+                    <div class="hp-bar-frame"><div id="hp-p1" class="hp-fill"></div></div>
+                </div>
+                <div class="hud-p2">
+                    <div style="margin-bottom:5px; text-align:right;">${GameState.enemy.name}</div>
+                    <div class="hp-bar-frame"><div id="hp-p2" class="hp-fill"></div></div>
+                </div>
+            </div>
+            
+            <div id="p1-sprite" class="sprite sprite-p1" style="background-image:url('${GameState.player.img}')"></div>
+            <div id="p2-sprite" class="sprite sprite-p2" style="background-image:url('${GameState.enemy.img}')"></div>
+            
+            <div class="stage-floor"></div>
+            <div class="controls-hint">ARROWS: Move | SPACE: Fire</div>
         </div>
     `;
-    requestAnimationFrame(() => {
-        const timer = document.getElementById('qte-timer');
-        if (timer) timer.style.width = '0%';
-    });
 
-    let resolved = false;
-    const resolve = (success) => {
-        if (resolved) return;
-        resolved = true;
-        clearTimeout(GameState.qteTimer);
-        overlay.innerHTML = '';
-        if (success) onSuccess(); else onFail();
-    };
+    showScreen('battle-screen');
 
-    document.getElementById('qte-btn').onclick = () => resolve(true);
-    GameState.qteTimer = setTimeout(() => resolve(false), duration);
+    // Start Loop
+    requestAnimationFrame(gameLoop);
 }
 
-function clearQTE() {
-    const overlay = document.getElementById('qte-overlay');
-    if (overlay) overlay.innerHTML = '';
-    if (GameState.qteTimer) clearTimeout(GameState.qteTimer);
+function gameLoop() {
+    if (!GameState.battleActive) return;
+
+    updateGameLogic();
+    renderGame();
+
+    requestAnimationFrame(gameLoop);
 }
 
-// --- PROJECTILE & DAMAGE ---
+function updateGameLogic() {
+    const p1 = GameState.player;
+    const p2 = GameState.enemy;
+    const width = 1000; // Stage width approx
 
-function executeTurn(attackerSide, damageMultiplier = 1.0) {
-    const attacker = attackerSide === 'champion' ? GameState.champion : GameState.challenger;
-    const defender = attackerSide === 'champion' ? GameState.challenger : GameState.champion;
-    const defenderSide = attackerSide === 'champion' ? 'challenger' : 'champion';
+    // 1. Player Move
+    if (GameState.keys.left && p1.x > 0) p1.x -= MOVE_SPEED;
+    if (GameState.keys.right && p1.x < width - p1.w) p1.x += MOVE_SPEED;
 
-    const skills = attacker.skills || [];
-    let selectedSkill = skills.length > 0 ? skills[0] : { name: "Fireball", damage: 20 };
+    // 2. Player Shoot
+    if (p1.cd > 0) p1.cd--;
+    if (GameState.keys.space && p1.cd === 0) {
+        spawnBullet(p1.x + p1.w, p1.y + 40, BULLET_SPEED, 'p1');
+        p1.cd = FIRE_COOLDOWN;
+        if (window.audioManager) window.audioManager.play('hit_fast', { volume: 0.5 });
+    }
 
-    addBattleLog(`${attacker.name} charges ${selectedSkill.name}...`, 'log-info');
+    // 3. Enemy AI
+    p2.logicTimer++;
+    if (p2.logicTimer > 60) { // Decision every 1s
+        p2.moveDir = Math.random() < 0.5 ? -1 : 1;
+        p2.logicTimer = 0;
+    }
 
-    // AUDIO: Charge/Shoot
-    if (window.audioManager) window.audioManager.play('hit_fast', { volume: 0.8 });
+    // Enemy Move
+    if (p2.moveDir === -1 && p2.x > 0) p2.x -= (MOVE_SPEED * 0.6); // Slower than player
+    if (p2.moveDir === 1 && p2.x < width - p2.w) p2.x += (MOVE_SPEED * 0.6);
 
-    // 1. SHOOT PROJECTILE (Animation)
-    shootProjectile(attackerSide, defenderSide, () => {
-        // Callback when projectile hits (approx 500ms later)
-        if (!GameState.battleInProgress) return;
+    // Enemy Shoot (Always towards player)
+    if (p2.cd > 0) p2.cd--;
+    if (p2.cd === 0 && Math.random() < 0.05) { // Random chance per frame
+        spawnBullet(p2.x, p2.y + 40, -BULLET_SPEED, 'p2');
+        p2.cd = FIRE_COOLDOWN * 1.5;
+        if (window.audioManager) window.audioManager.play('hit_fast', { volume: 0.5 });
+    }
 
-        // DAMAGE CALC
-        const baseDamage = parseFloat(selectedSkill.damage || 20) + parseFloat(attacker.stats.attack || 20);
-        const typeMultiplier = getTypeMultiplier(attacker.type, defender.type);
-        const defense = parseFloat(defender.stats.defense || 10);
-        let rawDamage = ((baseDamage * typeMultiplier) - (defense * 0.35)) * ((Math.random() * 0.4) + 0.8);
-        let finalDamage = Math.max(5, Math.floor(rawDamage * damageMultiplier));
+    // 4. Update Bullets
+    for (let i = GameState.bullets.length - 1; i >= 0; i--) {
+        let b = GameState.bullets[i];
+        b.x += b.dx;
 
-        let isCrit = false;
-        if (Math.random() < 0.15 && damageMultiplier > 0.6) {
-            finalDamage = Math.floor(finalDamage * 1.5);
-            isCrit = true;
+        // Remove OOB
+        if (b.x < -50 || b.x > width + 50) {
+            GameState.bullets.splice(i, 1);
+            continue;
         }
 
-        // LETHAL CHECK
-        const currentDefHP = defenderSide === 'challenger' ? GameState.challengerCurrentHP : GameState.championCurrentHP;
-        const isLethal = finalDamage >= currentDefHP;
-
-        // AUDIO & VFX
-        if (window.audioManager) {
-            if (isLethal) {
-                window.audioManager.play('roar');
-                window.audioManager.play('hit_heavy', { volume: 1.5 });
-            } else {
-                window.audioManager.play('hit_heavy', { volume: 1.0 });
+        // Collsion
+        let hit = false;
+        if (b.owner === 'p1') {
+            if (b.x > p2.x && b.x < p2.x + p2.w && Math.abs(b.y - (p2.y + 40)) < 50) { // Simple hit check
+                takeDamage('p2', 15);
+                hit = true;
+            }
+        } else {
+            if (b.x > p1.x && b.x < p1.x + p1.w && Math.abs(b.y - (p1.y + 40)) < 50) {
+                takeDamage('p1', 15);
+                hit = true;
             }
         }
 
-        if (isLethal) {
-            shakeScreen(true);
-            const flash = document.createElement('div');
-            flash.className = 'flash-overlay';
-            document.body.appendChild(flash);
-            setTimeout(() => flash.remove(), 600);
-        } else {
-            shakeScreen(false);
+        if (hit) {
+            // Spawn Boom
+            spawnExplosion(b.x, 30); // 30 is floor offset approx
+            GameState.bullets.splice(i, 1);
         }
+    }
+}
 
-        playSkillVFX(selectedSkill.type || 'normal', defenderSide);
+function renderGame() {
+    const p1El = document.getElementById('p1-sprite');
+    const p2El = document.getElementById('p2-sprite');
 
-        if (defenderSide === 'challenger') {
-            GameState.challengerCurrentHP = Math.max(0, GameState.challengerCurrentHP - finalDamage);
-        } else {
-            GameState.championCurrentHP = Math.max(0, GameState.championCurrentHP - finalDamage);
-        }
-        updateHP(defenderSide);
-        showFloatingDamage(finalDamage, defenderSide, isCrit || isLethal);
+    if (p1El) p1El.style.left = GameState.player.x + 'px';
+    if (p2El) p2El.style.left = GameState.enemy.x + 'px';
 
-        let dmgMsg = `>> ${finalDamage} damage!`;
-        if (isLethal) dmgMsg += ' FATAL!';
-        addBattleLog(dmgMsg, attackerSide === 'champion' ? 'log-damage' : 'log-damage-enemy');
+    // Render HP
+    const hp1 = document.getElementById('hp-p1');
+    const hp2 = document.getElementById('hp-p2');
+    if (hp1) hp1.style.width = GameState.player.hp + '%';
+    if (hp2) hp2.style.width = GameState.enemy.hp + '%';
 
-        if (isLethal) {
-            GameState.battleInProgress = false;
-            setTimeout(() => handleMatchEnd(GameState.championCurrentHP > 0), 1000);
-        } else {
-            GameState.isChampionTurn = !GameState.isChampionTurn;
-            setTimeout(startInteractiveTurn, 1000);
-        }
+    // Render Bullets (This is heavy DOM manip, typically use Canvas but DOM for simplicity here)
+    // Clear old bullets not in state? No, better to specific ID update or clear-redraw
+    // Let's do simple clear-redraw for safety
+    document.querySelectorAll('.bullet').forEach(el => el.remove());
+
+    const stage = document.getElementById('game-stage');
+    GameState.bullets.forEach(b => {
+        const el = document.createElement('div');
+        el.className = b.owner === 'p1' ? 'bullet' : 'bullet bullet-p2';
+        el.style.left = b.x + 'px';
+        el.style.bottom = '40px'; // Fixed height for 2D platformer look
+        stage.appendChild(el);
     });
 }
 
-function shootProjectile(attackerSide, defenderSide, onHit) {
-    const app = document.getElementById('app');
-    const ball = document.createElement('div');
-    ball.className = attackerSide === 'champion' ? 'projectile' : 'projectile enemy-projectile';
-
-    // Get Coordinates
-    const attImg = document.getElementById(attackerSide === 'champion' ? 'player-img' : 'enemy-img');
-    const defImg = document.getElementById(attackerSide === 'champion' ? 'enemy-img' : 'player-img');
-
-    if (!attImg || !defImg) { onHit(); return; } // Safety
-
-    const startRect = attImg.getBoundingClientRect();
-    const endRect = defImg.getBoundingClientRect();
-    const containerRect = document.querySelector('.battle-arena').getBoundingClientRect(); // Usually absolute
-
-    // Position relative to screen since projectile is fixed
-    ball.style.left = (startRect.left + startRect.width / 2 - 20) + 'px';
-    ball.style.top = (startRect.top + startRect.height / 2 - 20) + 'px';
-
-    document.body.appendChild(ball);
-
-    // Animate
-    const deltaX = (endRect.left + endRect.width / 2) - (startRect.left + startRect.width / 2);
-    const deltaY = (endRect.top + endRect.height / 2) - (startRect.top + startRect.height / 2);
-
-    const anim = ball.animate([
-        { transform: 'translate(0,0) scale(0.5)' },
-        { transform: `translate(${deltaX}px, ${deltaY}px) scale(1.5)` }
-    ], {
-        duration: 500,
-        easing: 'ease-in'
-    });
-
-    anim.onfinish = () => {
-        ball.remove();
-        onHit();
-    };
+function spawnBullet(x, y, dx, owner) {
+    GameState.bullets.push({ x, y, dx, owner });
 }
 
-// ... STANDARD UTILS ...
+function spawnExplosion(x, y) {
+    const stage = document.getElementById('game-stage');
+    const exp = document.createElement('div');
+    exp.className = 'explosion';
+    exp.style.left = x + 'px';
+    exp.style.bottom = y + 'px';
+    stage.appendChild(exp);
+    setTimeout(() => exp.remove(), 300);
+
+    if (window.audioManager) window.audioManager.play('hit_heavy', { volume: 0.8 });
+}
+
+function takeDamage(target, amt) {
+    if (!GameState.battleActive) return;
+
+    if (target === 'p1') {
+        GameState.player.hp -= amt;
+        if (GameState.player.hp <= 0) endGame(false);
+    } else {
+        GameState.enemy.hp -= amt;
+        if (GameState.enemy.hp <= 0) endGame(true);
+    }
+}
+
+function endGame(playerWon) {
+    GameState.battleActive = false;
+    // Explode loser
+    const loser = playerWon ? GameState.enemy : GameState.player;
+    spawnExplosion(loser.x, 20);
+
+    if (window.audioManager) {
+        window.audioManager.play('roar');
+        window.audioManager.play('cheer');
+    }
+
+    setTimeout(() => {
+        handleMatchEnd(playerWon);
+    }, 1500);
+}
+
+// --- STANDARD UTILS ---
+
 function handleMatchEnd(championWon) {
     const t = GameState.tournament;
     const match = t.currentRound[t.currentMatchIndex];
     if (!match) return;
     match.status = 'completed';
     match.winner = championWon ? match.p1 : match.p2;
-    if (window.audioManager) window.audioManager.play('cheer');
-    setTimeout(() => showMatchWinnerModal(match.winner), 1500);
+    showMatchWinnerModal(match.winner);
 }
 
 function showMatchWinnerModal(winner) {
@@ -486,66 +454,50 @@ function showMatchWinnerModal(winner) {
         newBtn.addEventListener('click', () => {
             document.getElementById('result-modal').classList.remove('active');
             GameState.tournament.currentMatchIndex++;
-            showScreen('tournament-screen');
-            updateBracketUI();
+            initTournament(); // Checks round end internally? No need to check logic again
+            // Actually need to check if round ended manually or reuse updateBracket
+            advanceLogic();
         });
     }
     modal.classList.add('active');
 }
 
+function advanceLogic() {
+    // Check if round complete
+    const t = GameState.tournament;
+    const pending = t.currentRound.filter(m => m.status !== 'completed').length;
+
+    if (pending === 0) {
+        if (t.currentRound.length === 1) {
+            showTournamentWinner();
+        } else {
+            advanceToNextRound();
+        }
+    } else {
+        updateBracketUI(); // Back to bracket? Or auto next?
+        // Let's go back to bracket so player can breathe
+        showScreen('tournament-screen');
+        updateBracketUI();
+    }
+}
+
+function advanceToNextRound() {
+    const t = GameState.tournament;
+    const winners = t.currentRound.map(m => m.winner);
+    t.roundIndex++;
+    generateUnknownRound(winners);
+    updateBracketUI();
+    showScreen('tournament-screen');
+}
+
 function showTournamentWinner() {
     const winner = GameState.tournament.currentRound[0].winner;
     const modal = document.getElementById('result-modal');
-    const message = document.getElementById('result-message');
-    const btn = document.getElementById('btn-rematch');
-    if (window.audioManager) {
-        window.audioManager.stopBGM();
-        window.audioManager.play('win');
-    }
-    message.innerHTML = `<div style="font-size:2rem; color:#facc15;">${winner.name}<br>CONQUERED THE GALAXY!</div>`;
-    btn.textContent = "🏆 NEW GAME";
-    const newBtn = btn.cloneNode(true);
-    btn.parentNode.replaceChild(newBtn, btn);
-    newBtn.addEventListener('click', () => {
+    modal.classList.add('active');
+    document.getElementById('result-title').textContent = "UNIVERSE CHAMPION";
+    document.getElementById('btn-rematch').textContent = "NEW GAME";
+    document.getElementById('btn-rematch').onclick = () => {
         modal.classList.remove('active');
         initTournament();
-    });
-    modal.classList.add('active');
+    };
 }
-
-function hideModal() { document.getElementById('result-modal').classList.remove('active'); }
-function shakeScreen(isIntense) {
-    const app = document.getElementById('app');
-    if (!app) return;
-    app.classList.remove('screen-shake');
-    void app.offsetHeight;
-    app.classList.add('screen-shake');
-    app.style.animationDuration = isIntense ? '0.8s' : '0.4s';
-    setTimeout(() => app.classList.remove('screen-shake'), 800);
-}
-function playSkillVFX(type, side) {/* Same as before */ }
-function showFloatingDamage(amt, side, crit) {/* Same as before, just add to container */ }
-// (For brevity, assuming existing HTML structure for fx-container)
-function updateHP(side) {
-    const currentHP = side === 'champion' ? GameState.championCurrentHP : GameState.challengerCurrentHP;
-    const maxHP = 100;
-    const percentage = Math.max(0, (currentHP / maxHP) * 100);
-    const prefix = side === 'champion' ? 'player' : 'enemy';
-    const hpBar = document.getElementById(`${prefix}-hp-bar`);
-    if (hpBar) {
-        hpBar.querySelector('.hp-fill').style.width = percentage + '%';
-        hpBar.querySelector('.hp-text').textContent = `${Math.floor(currentHP)}/${maxHP}`;
-    }
-}
-function addBattleLog(msg, cls) {
-    const log = document.getElementById('battle-log');
-    if (log) {
-        const p = document.createElement('p');
-        p.className = `log-entry ${cls || ''}`;
-        p.textContent = msg;
-        log.appendChild(p);
-        log.scrollTop = log.scrollHeight;
-    }
-}
-function renderCollectionGrid() { /* ... */ }
-function getTypeMultiplier(at, dt) { return 1; } // Simplified for now
