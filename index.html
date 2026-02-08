@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Animal Battle Arena | RPG Fighting Game</title>
+    <meta name="description"
+        content="Experience thrilling turn-based animal battles! Choose your animal companion for epic fights!">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+TC:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div id="app">
+        <!-- 粒子背景 -->
+        <div id="particles"></div>
+
+        <!-- 主選單畫面 -->
+        <div id="main-menu" class="screen active">
+            <div class="logo-container">
+                <h1 class="game-title">
+                    <span class="title-main">ANIMAL</span>
+                    <span class="title-sub">BATTLE ARENA</span>
+                </h1>
+                <div class="title-glow"></div>
+            </div>
+            <div class="menu-buttons">
+                <button class="menu-btn" id="btn-start">
+                    <span class="btn-icon">⚔️</span>
+                    <span class="btn-text">Start Battle</span>
+                </button>
+                <button class="menu-btn" id="btn-collection">
+                    <span class="btn-icon">📖</span>
+                    <span class="btn-text">Collection</span>
+                </button>
+                <button class="menu-btn" id="btn-howto">
+                    <span class="btn-icon">❓</span>
+                    <span class="btn-text">How to Play</span>
+                </button>
+            </div>
+            <div class="version-info">v1.0.0 | Made with ❤️</div>
+        </div>
+
+        <!-- 角色選擇畫面 -->
+        <div id="character-select" class="screen">
+            <div class="screen-header">
+                <button class="back-btn" id="btn-back-select">← Back</button>
+                <h2>Choose Your Fighter</h2>
+            </div>
+            <div class="character-grid" id="character-grid">
+                <!-- 角色卡片由 JavaScript 動態生成 -->
+            </div>
+            <div class="selected-info" id="selected-info">
+                <div class="selected-digimon">
+                    <img id="selected-img" src="" alt="">
+                    <div class="selected-details">
+                        <h3 id="selected-name">Select a Fighter</h3>
+                        <p id="selected-type" class="type-badge"></p>
+                        <div class="stats-preview" id="stats-preview"></div>
+                    </div>
+                </div>
+                <button class="confirm-btn" id="btn-confirm" disabled>Confirm Selection</button>
+            </div>
+        </div>
+
+        <!-- 戰鬥畫面 -->
+        <div id="battle-screen" class="screen">
+            <div class="battle-arena">
+                <!-- 玩家區域 -->
+                <div class="fighter-zone player-zone">
+                    <div class="fighter-card player-card">
+                        <div class="fighter-img-container">
+                            <img id="player-img" src="" alt="" class="fighter-img">
+                            <div class="fighter-aura player-aura"></div>
+                        </div>
+                        <div class="fighter-info">
+                            <h3 id="player-name">Player Fighter</h3>
+                            <div class="hp-bar-container">
+                                <div class="hp-bar" id="player-hp-bar">
+                                    <div class="hp-fill"></div>
+                                    <span class="hp-text" id="player-hp-text">100/100</span>
+                                </div>
+                            </div>
+                            <div class="mp-bar-container">
+                                <div class="mp-bar" id="player-mp-bar">
+                                    <div class="mp-fill"></div>
+                                    <span class="mp-text" id="player-mp-text">50/50</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VS 標誌 -->
+                <div class="vs-container">
+                    <div class="vs-text">VS</div>
+                    <div class="vs-lightning"></div>
+                </div>
+
+                <!-- 敵人區域 -->
+                <div class="fighter-zone enemy-zone">
+                    <div class="fighter-card enemy-card">
+                        <div class="fighter-img-container">
+                            <img id="enemy-img" src="" alt="" class="fighter-img">
+                            <div class="fighter-aura enemy-aura"></div>
+                        </div>
+                        <div class="fighter-info">
+                            <h3 id="enemy-name">Enemy Fighter</h3>
+                            <div class="hp-bar-container">
+                                <div class="hp-bar" id="enemy-hp-bar">
+                                    <div class="hp-fill"></div>
+                                    <span class="hp-text" id="enemy-hp-text">100/100</span>
+                                </div>
+                            </div>
+                            <div class="mp-bar-container">
+                                <div class="mp-bar" id="enemy-mp-bar">
+                                    <div class="mp-fill"></div>
+                                    <span class="mp-text" id="enemy-mp-text">50/50</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 戰鬥日誌 -->
+            <div class="battle-log-container">
+                <div class="battle-log" id="battle-log">
+                    <p class="log-entry">Battle Start!</p>
+                </div>
+            </div>
+
+            <!-- 技能面板 -->
+            <div class="action-panel" id="action-panel">
+                <div class="action-buttons" id="action-buttons">
+                    <!-- 技能按鈕由 JavaScript 動態生成 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 數碼圖鑑畫面 -->
+        <div id="collection-screen" class="screen">
+            <div class="screen-header">
+                <button class="back-btn" id="btn-back-collection">← Back</button>
+                <h2>Animal Collection</h2>
+            </div>
+            <div class="collection-grid" id="collection-grid">
+                <!-- 圖鑑卡片由 JavaScript 動態生成 -->
+            </div>
+            <div class="dex-detail" id="dex-detail">
+                <div class="dex-close" id="dex-close">✕</div>
+                <div class="dex-content">
+                    <img id="dex-img" src="" alt="">
+                    <div class="dex-info">
+                        <h3 id="dex-name"></h3>
+                        <p id="dex-type" class="type-badge"></p>
+                        <p id="dex-desc" class="dex-description"></p>
+                        <div class="dex-stats" id="dex-stats"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 遊戲說明畫面 -->
+        <div id="howto-screen" class="screen">
+            <div class="screen-header">
+                <button class="back-btn" id="btn-back-howto">← Back</button>
+                <h2>How to Play</h2>
+            </div>
+            <div class="howto-content">
+                <div class="howto-section">
+                    <h3>🎮 Gameplay</h3>
+                    <p>This is a turn-based RPG fighting game. Choose your favorite animal and battle against enemy
+                        fighters!</p>
+                </div>
+                <div class="howto-section">
+                    <h3>⚔️ Battle System</h3>
+                    <ul>
+                        <li><strong>Normal Attack</strong> - Basic damage, no MP cost</li>
+                        <li><strong>Skill Attack</strong> - Powerful skill, consumes MP</li>
+                        <li><strong>Ultimate</strong> - Massive damage, high MP cost</li>
+                        <li><strong>Defend</strong> - Reduce damage taken and restore MP</li>
+                    </ul>
+                </div>
+                <div class="howto-section">
+                    <h3>🔥 Type Advantages</h3>
+                    <div class="type-chart">
+                        <div class="type-item">
+                            <span class="type-badge type-fire">Fire</span> →
+                            <span class="type-badge type-nature">Nature</span>
+                        </div>
+                        <div class="type-item">
+                            <span class="type-badge type-nature">Nature</span> →
+                            <span class="type-badge type-water">Water</span>
+                        </div>
+                        <div class="type-item">
+                            <span class="type-badge type-water">Water</span> →
+                            <span class="type-badge type-fire">Fire</span>
+                        </div>
+                        <div class="type-item">
+                            <span class="type-badge type-light">Light</span> ↔
+                            <span class="type-badge type-dark">Dark</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="howto-section">
+                    <h3>💡 Tips</h3>
+                    <p>Use type advantages to deal 1.5x damage! Use defend wisely to restore MP for ultimate attacks!
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 勝利/失敗彈窗 -->
+        <div id="result-modal" class="modal">
+            <div class="modal-content">
+                <div class="result-icon" id="result-icon">🏆</div>
+                <h2 id="result-title">Victory!</h2>
+                <p id="result-message">Congratulations! You defeated your opponent!</p>
+                <div class="result-buttons">
+                    <button class="menu-btn" id="btn-rematch">Rematch</button>
+                    <button class="menu-btn secondary" id="btn-menu">Main Menu</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="digimon-data.js"></script>
+    <script src="game.js"></script>
+</body>
+
+</html>

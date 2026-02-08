@@ -1,0 +1,233 @@
+/* Tournament Bracket Styles */
+
+/* Screen Overlay */
+.tournament-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(10, 10, 20, 0.95);
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    color: white;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.5s ease;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.tournament-screen.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Header */
+.tournament-header {
+    text-align: center;
+    margin-bottom: 30px;
+    margin-top: 20px;
+}
+
+.round-title {
+    font-size: 3rem;
+    font-family: 'Orbitron', sans-serif;
+    color: #facc15;
+    text-shadow: 0 0 20px rgba(250, 204, 21, 0.6);
+    margin-bottom: 10px;
+    letter-spacing: 2px;
+}
+
+.round-subtitle {
+    font-size: 1.2rem;
+    color: #94a3b8;
+}
+
+/* Bracket Grid */
+.match-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 20px;
+    width: 100%;
+    max-width: 1400px;
+    padding-bottom: 100px;
+    /* Space for button */
+}
+
+/* Individual Match Card */
+.match-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    padding: 15px;
+    width: 320px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Active Match (Coming Up) */
+.match-card.current {
+    border-color: #facc15;
+    background: rgba(250, 204, 21, 0.1);
+    box-shadow: 0 0 25px rgba(250, 204, 21, 0.4);
+    transform: scale(1.05);
+    z-index: 10;
+}
+
+/* Completed Match */
+.match-card.completed {
+    opacity: 0.7;
+    border-color: #4ade80;
+    background: rgba(74, 222, 128, 0.05);
+}
+
+.match-card.upcoming {
+    opacity: 0.5;
+}
+
+/* Match ID Badge */
+.match-id {
+    position: absolute;
+    top: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.4);
+    text-transform: uppercase;
+}
+
+/* Fighter Mini Profile */
+.fighter-mini {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 40%;
+    position: relative;
+}
+
+.fighter-mini img {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #555;
+    margin-bottom: 8px;
+    transition: border-color 0.3s;
+}
+
+.fighter-mini .name {
+    font-size: 0.8rem;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+}
+
+/* Winner/Loser Styles */
+.fighter-mini.winner img {
+    border-color: #4ade80;
+    /* Green */
+    box-shadow: 0 0 15px rgba(74, 222, 128, 0.6);
+}
+
+.fighter-mini.loser img {
+    border-color: #ef4444;
+    /* Red */
+    filter: grayscale(1) brightness(0.7);
+}
+
+.fighter-mini.winner .name {
+    color: #4ade80;
+    font-weight: bold;
+}
+
+.fighter-mini.loser .name {
+    color: #ef4444;
+    text-decoration: line-through;
+}
+
+/* VS Badge */
+.vs-badge {
+    color: #facc15;
+    font-family: 'Orbitron';
+    font-weight: 900;
+    font-size: 1.2rem;
+    text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+/* Next Match Controller */
+.tournament-controls {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    justify-content: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    z-index: 250;
+}
+
+.next-match-btn {
+    padding: 15px 40px;
+    font-size: 1.5rem;
+    background: linear-gradient(135deg, #facc15 0%, #eab308 100%);
+    border: none;
+    border-radius: 50px;
+    color: #000;
+    font-family: 'Orbitron';
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 0 30px rgba(234, 179, 8, 0.6);
+    animation: btnPulse 2s infinite;
+    transition: transform 0.2s;
+}
+
+.next-match-btn:hover {
+    transform: scale(1.05);
+}
+
+.next-match-btn:disabled {
+    background: #555;
+    color: #888;
+    box-shadow: none;
+    animation: none;
+    cursor: not-allowed;
+}
+
+@keyframes btnPulse {
+    0% {
+        box-shadow: 0 0 20px rgba(234, 179, 8, 0.6);
+    }
+
+    50% {
+        box-shadow: 0 0 40px rgba(234, 179, 8, 0.9);
+    }
+
+    100% {
+        box-shadow: 0 0 20px rgba(234, 179, 8, 0.6);
+    }
+}
+
+/* Winner Reveal Modal Style Override */
+.winner-reveal-img {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    border: 5px solid #facc15;
+    object-fit: cover;
+    margin: 20px auto;
+    box-shadow: 0 0 50px rgba(250, 204, 21, 0.5);
+    display: block;
+}
