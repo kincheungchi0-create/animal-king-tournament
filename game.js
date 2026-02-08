@@ -58,7 +58,13 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('keydown', (e) => {
         if (e.key === 'ArrowLeft') GameState.keys.left = true;
         if (e.key === 'ArrowRight') GameState.keys.right = true;
-        if (e.code === 'Space') GameState.keys.space = true;
+        if (e.code === 'Space') {
+            if (GameState.battleActive) {
+                GameState.keys.space = true;
+            } else {
+                handleGlobalSpaceKey();
+            }
+        }
     });
     window.addEventListener('keyup', (e) => {
         if (e.key === 'ArrowLeft') GameState.keys.left = false;
@@ -72,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sub = document.querySelector('#main-menu .subtitle');
     if (sub) sub.textContent = "Real-Time Combat: Arrows to Move, Space to Shoot!";
     const btn = document.getElementById('btn-start');
-    if (btn) btn.innerHTML = "🚀 LAUNCH GAME 🔊";
+    if (btn) btn.innerHTML = "🚀 PUSH SPACE TO START 🔊";
 
     // Setup Tournament Screen
     if (!document.getElementById('tournament-screen')) {
@@ -86,13 +92,38 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <div id="match-grid" class="match-grid"></div>
             <div class="tournament-controls">
-                <button id="btn-next-match" class="next-match-btn">ENTER ARENA ⚔️</button>
+                <button id="btn-next-match" class="next-match-btn">PUSH SPACE TO START ⚔️</button>
             </div>
         `;
         document.getElementById('app').appendChild(ts);
         document.getElementById('btn-next-match').addEventListener('click', startCurrentMatch);
     }
 });
+
+function handleGlobalSpaceKey() {
+    // 1. If Modal Active (Game Over / Win)
+    const modal = document.getElementById('result-modal');
+    if (modal && modal.classList.contains('active')) {
+        const btn = document.getElementById('btn-rematch');
+        if (btn && btn.offsetParent !== null) { // Check visibility
+            btn.click();
+            return;
+        }
+    }
+
+    // 2. Main Menu
+    if (GameState.currentScreen === 'main-menu') {
+        if (window.audioManager) window.audioManager.init();
+        initTournament();
+        return;
+    }
+
+    // 3. Tournament Screen
+    if (GameState.currentScreen === 'tournament-screen') {
+        startCurrentMatch();
+        return;
+    }
+}
 
 function initEventListeners() {
     const attach = (id, fn) => {
@@ -425,16 +456,22 @@ function handleMatchEnd(championWon) {
     if (!match) return;
     match.status = 'completed';
     match.winner = championWon ? match.p1 : match.p2;
-    showMatchWinnerModal(match.winner);
+    showMatchWinnerModal(match.winner, championWon); // Pass if player won
 }
 
-function showMatchWinnerModal(winner) {
+function showMatchWinnerModal(winner, playerWon) {
     const modal = document.getElementById('result-modal');
     const title = document.getElementById('result-title');
     const message = document.getElementById('result-message');
     const btn = document.getElementById('btn-rematch');
 
-    title.textContent = 'MATCH WINNER 🏅';
+    // SFX
+    if (window.audioManager) {
+        if (playerWon) window.audioManager.play('cheer');
+        else window.audioManager.play('roar'); // Lose sound?
+    }
+
+    title.textContent = playerWon ? 'VICTORY! �' : 'DEFEATED... 💀';
     let img = document.getElementById('winner-reveal-img');
     if (!img) {
         img = document.createElement('img');
@@ -444,40 +481,57 @@ function showMatchWinnerModal(winner) {
     }
     img.src = winner.image;
 
-    message.innerHTML = `<div style="font-size:1.8rem; color:#facc15; margin:10px 0;">${winner.name}</div>`;
+    message.innerHTML = `
+        <div style="font-size:1.8rem; color:${playerWon ? '#facc15' : '#ff4444'}; margin:10px 0;">${winner.name}</div>
+        ${playerWon ? 'ADVANCES TO NEXT ROUND!' : 'ELIMINATED!'}
+    `;
 
-    if (btn) {
-        btn.style.display = 'block';
-        btn.textContent = "CONTINUE ➡️";
-        const newBtn = btn.cloneNode(true);
-        btn.parentNode.replaceChild(newBtn, btn);
-        newBtn.addEventListener('click', () => {
-            document.getElementById('result-modal').classList.remove('active');
-            GameState.tournament.currentMatchIndex++;
-            initTournament(); // Checks round end internally? No need to check logic again
-            // Actually need to check if round ended manually or reuse updateBracket
-            advanceLogic();
-        });
-    }
+    // Hide button for auto flow
+    if (btn) btn.style.display = 'none';
+
     modal.classList.add('active');
+
+    if (playerWon) {
+        // AUTO ADVANCE
+        setTimeout(() => {
+            modal.classList.remove('active');
+            GameState.tournament.currentMatchIndex++;
+            advanceLogic();
+        }, 2000);
+    } else {
+        // GAME OVER - Manual Restart
+        if (btn) {
+            btn.style.display = 'block';
+            btn.textContent = "TRY AGAIN 🔄";
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            newBtn.addEventListener('click', () => {
+                modal.classList.remove('active');
+                // Restart match? Or whole tournament? Let's restart match logic
+                startCurrentMatch();
+            });
+        }
+    }
 }
 
 function advanceLogic() {
-    // Check if round complete
     const t = GameState.tournament;
-    const pending = t.currentRound.filter(m => m.status !== 'completed').length;
 
-    if (pending === 0) {
+    // Check if current round is complete?
+    // currentMatchIndex might be out of bounds if round ended
+    if (t.currentMatchIndex >= t.currentRound.length) {
+        // Round Complete
         if (t.currentRound.length === 1) {
             showTournamentWinner();
         } else {
             advanceToNextRound();
         }
     } else {
-        updateBracketUI(); // Back to bracket? Or auto next?
-        // Let's go back to bracket so player can breathe
+        // Next Match in same round
+        // Show bracket briefly then auto start
         showScreen('tournament-screen');
         updateBracketUI();
+        setTimeout(() => startCurrentMatch(), 1500);
     }
 }
 
@@ -486,18 +540,39 @@ function advanceToNextRound() {
     const winners = t.currentRound.map(m => m.winner);
     t.roundIndex++;
     generateUnknownRound(winners);
-    updateBracketUI();
+
+    // Show Bracket logic
     showScreen('tournament-screen');
+    updateBracketUI();
+
+    // Auto start first match of new round
+    setTimeout(() => startCurrentMatch(), 2000);
 }
 
 function showTournamentWinner() {
     const winner = GameState.tournament.currentRound[0].winner;
     const modal = document.getElementById('result-modal');
     modal.classList.add('active');
-    document.getElementById('result-title').textContent = "UNIVERSE CHAMPION";
-    document.getElementById('btn-rematch').textContent = "NEW GAME";
-    document.getElementById('btn-rematch').onclick = () => {
-        modal.classList.remove('active');
-        initTournament();
-    };
+
+    if (window.audioManager) {
+        window.audioManager.stopBGM();
+        window.audioManager.play('win');
+    }
+
+    document.getElementById('result-title').textContent = "UNIVERSE CHAMPION 👑";
+    document.getElementById('result-message').innerHTML = `
+        <div style="font-size:2rem; color:#facc15;">${winner.name}<br>THE ULTIMATE VICTOR!</div>
+    `;
+
+    const btn = document.getElementById('btn-rematch');
+    if (btn) {
+        btn.style.display = 'block';
+        btn.textContent = "🏆 START NEW CUP";
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+        newBtn.addEventListener('click', () => {
+            modal.classList.remove('active');
+            initTournament();
+        });
+    }
 }
