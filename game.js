@@ -17,6 +17,7 @@ const GameState = {
     battleActive: false,
     width: 1000,
     height: 400, // Arena dimensions logic (not pixels)
+    animationFrameId: null, // NEW: Track loop ID
 
     player: {
         x: 100, y: 0, w: 80, h: 80,
@@ -243,18 +244,24 @@ function renderMiniFighter(fighter, isWinner) {
 // --- REAL-TIME BATTLE ENGINE ---
 
 function startCurrentMatch() {
+    // 1. CRITICAL FIX: Stop previous loop to prevent 'Fast Mode'
+    if (GameState.animationFrameId) {
+        cancelAnimationFrame(GameState.animationFrameId);
+        GameState.animationFrameId = null;
+    }
+    GameState.battleActive = false;
+
     const t = GameState.tournament;
     if (t.currentMatchIndex >= t.currentRound.length) return;
     const match = t.currentRound[t.currentMatchIndex];
-    if (match.status === 'completed') return;
 
-    // init state
+    // Init state
     GameState.player.hp = 100;
     GameState.player.img = match.p1.image;
     GameState.player.name = match.p1.name;
     GameState.player.x = 100;
-    GameState.player.y = 0;   // ensure y=0
-    GameState.player.dy = 0;  // velocity Y
+    GameState.player.y = 0;
+    GameState.player.dy = 0;
 
     GameState.enemy.hp = 100;
     GameState.enemy.img = match.p2.image;
@@ -268,16 +275,15 @@ function startCurrentMatch() {
 
     if (window.audioManager) window.audioManager.play('start');
 
-    // Build Arena DOM if needed (replacing battle-screen content or reusing it)
-    const battleScreen = document.getElementById('battle-screen');
-    if (!battleScreen) {
-        const bs = document.createElement('div');
+    // Build Arena DOM if needed
+    let bs = document.getElementById('battle-screen');
+    if (!bs) {
+        bs = document.createElement('div');
         bs.id = 'battle-screen';
         bs.className = 'screen';
         document.getElementById('app').appendChild(bs);
     }
 
-    const bs = document.getElementById('battle-screen');
     bs.innerHTML = `
         <div id="game-stage">
             <div class="stars"></div>
@@ -296,14 +302,14 @@ function startCurrentMatch() {
             <div id="p2-sprite" class="sprite sprite-p2" style="background-image:url('${GameState.enemy.img}')"></div>
             
             <div class="stage-floor"></div>
-            <div class="controls-hint">ARROWS: Move | SPACE: Fire</div>
+            <div class="controls-hint">ARROWS: Move/Jump | SPACE: Fire</div>
         </div>
     `;
 
     showScreen('battle-screen');
 
     // Start Loop
-    requestAnimationFrame(gameLoop);
+    gameLoop();
 }
 
 function gameLoop() {
@@ -312,7 +318,7 @@ function gameLoop() {
     updateGameLogic();
     renderGame();
 
-    requestAnimationFrame(gameLoop);
+    GameState.animationFrameId = requestAnimationFrame(gameLoop);
 }
 
 function updateGameLogic() {
@@ -520,10 +526,10 @@ function showMatchWinnerModal(winner, playerWon) {
     // SFX
     if (window.audioManager) {
         if (playerWon) window.audioManager.play('cheer');
-        else window.audioManager.play('roar'); // Lose sound?
+        else window.audioManager.play('roar');
     }
 
-    title.textContent = playerWon ? 'VICTORY! �' : 'DEFEATED... 💀';
+    title.textContent = playerWon ? 'VICTORY! 🏆' : 'DEFEATED... 💀';
     let img = document.getElementById('winner-reveal-img');
     if (!img) {
         img = document.createElement('img');
@@ -539,11 +545,10 @@ function showMatchWinnerModal(winner, playerWon) {
     `;
 
     // Hide button for auto flow
-    if (btn) btn.style.display = 'none';
-
-    modal.classList.add('active');
-
     if (playerWon) {
+        if (btn) btn.style.display = 'none';
+        modal.classList.add('active');
+
         // AUTO ADVANCE
         setTimeout(() => {
             modal.classList.remove('active');
@@ -555,14 +560,13 @@ function showMatchWinnerModal(winner, playerWon) {
         if (btn) {
             btn.style.display = 'block';
             btn.textContent = "TRY AGAIN 🔄";
-            const newBtn = btn.cloneNode(true);
-            btn.parentNode.replaceChild(newBtn, btn);
-            newBtn.addEventListener('click', () => {
+            // Check listener stacking - use onclick
+            btn.onclick = () => {
                 modal.classList.remove('active');
-                // Restart match? Or whole tournament? Let's restart match logic
                 startCurrentMatch();
-            });
+            };
         }
+        modal.classList.add('active');
     }
 }
 
