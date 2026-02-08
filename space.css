@@ -1,0 +1,126 @@
+/* SPACE THEME & DIGIMON STYLE COMBAT */
+
+body {
+    background-color: #000;
+    background-image:
+        radial-gradient(white, rgba(255, 255, 255, .2) 2px, transparent 3px),
+        radial-gradient(white, rgba(255, 255, 255, .15) 1px, transparent 2px),
+        radial-gradient(white, rgba(255, 255, 255, .1) 2px, transparent 3px);
+    background-size: 550px 550px, 350px 350px, 250px 250px;
+    background-position: 0 0, 40px 60px, 130px 270px;
+    color: #fff;
+    font-family: 'Orbitron', sans-serif;
+}
+
+/* Semi-transparent Cards */
+.player-card,
+.enemy-card,
+.match-card {
+    background: rgba(20, 30, 50, 0.85);
+    border: 1px solid rgba(100, 200, 255, 0.3);
+    box-shadow: 0 0 15px rgba(0, 150, 255, 0.2);
+    backdrop-filter: blur(5px);
+}
+
+/* QTE Overlay */
+#qte-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+    text-align: center;
+    width: 100%;
+}
+
+.qte-btn {
+    font-size: 2.5rem;
+    padding: 20px 50px;
+    border: 3px solid #fff;
+    border-radius: 50px;
+    cursor: pointer;
+    font-weight: bold;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+    transition: transform 0.1s;
+    outline: none;
+    box-shadow: 0 0 30px rgba(255, 255, 255, 0.5);
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.qte-btn:active {
+    transform: scale(0.95);
+}
+
+.btn-attack {
+    background: linear-gradient(135deg, #ff416c, #ff4b2b);
+    color: white;
+    border-color: #ffcccc;
+}
+
+.btn-defend {
+    background: linear-gradient(135deg, #1fa2ff, #12d8fa);
+    color: white;
+    border-color: #ccf0ff;
+}
+
+.timer-bar {
+    width: 300px;
+    height: 10px;
+    background: #333;
+    margin: 10px auto;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.timer-fill {
+    height: 100%;
+    background: #fff;
+    width: 100%;
+    transform-origin: left;
+}
+
+@keyframes popIn {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* --- DIGIMON FIREBALL PROJECTILE --- */
+.projectile {
+    position: fixed;
+    width: 40px;
+    height: 40px;
+    background: radial-gradient(circle, #ffeb3b 30%, #ff5722 70%);
+    border-radius: 50%;
+    z-index: 2000;
+    box-shadow: 0 0 20px #ff5722, 0 0 40px #ff9800;
+    pointer-events: none;
+}
+
+/* Pixel Art Fireball Trail */
+.projectile::after {
+    content: '';
+    position: absolute;
+    top: 10px;
+    left: -20px;
+    width: 30px;
+    height: 20px;
+    background: rgba(255, 87, 34, 0.6);
+    filter: blur(4px);
+    border-radius: 50%;
+}
+
+.enemy-projectile {
+    background: radial-gradient(circle, #00e5ff 30%, #2979ff 70%);
+    box-shadow: 0 0 20px #2979ff, 0 0 40px #00e5ff;
+}
+
+.enemy-projectile::after {
+    background: rgba(41, 121, 255, 0.6);
+}
