@@ -1,19 +1,15 @@
 // ANIMAL KING TOURNAMENT - GAME ENGINE
-// Version: Audio Enhanced World Cup
+// Version: Ultimate Edition (Lethal Hits + Winner Modal)
 
 // Game State Management
 const GameState = {
     currentScreen: 'main-menu',
-
-    // Battle specific vars
-    champion: null,      // Left Side (Player)
-    challenger: null,    // Right Side (Enemy)
+    champion: null,
+    challenger: null,
     championCurrentHP: 0,
     challengerCurrentHP: 0,
     isChampionTurn: true,
     battleInProgress: false,
-
-    // Tournament Management
     tournament: {
         fighters: [],
         currentRound: [],
@@ -33,6 +29,18 @@ document.addEventListener('DOMContentLoaded', () => {
         link.href = 'tournament.css';
         document.head.appendChild(link);
     }
+
+    // Inject Global Styles for Flash Effect
+    const style = document.createElement('style');
+    style.innerHTML = `
+        @keyframes flash { 0% { opacity: 0.8; } 100% { opacity: 0; } }
+        .flash-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: white; pointer-events: none; z-index: 9999;
+            animation: flash 0.5s ease-out forwards;
+        }
+    `;
+    document.head.appendChild(style);
 
     initParticles();
     initEventListeners();
@@ -97,7 +105,6 @@ function initEventListeners() {
         if (el) el.addEventListener('click', fn);
     };
 
-    // Important: Initialize Audio on first user interaction
     attach('btn-start', () => {
         if (window.audioManager) window.audioManager.init();
         initTournament();
@@ -108,12 +115,8 @@ function initEventListeners() {
     attach('btn-back-collection', () => showScreen('main-menu'));
     attach('btn-back-howto', () => showScreen('main-menu'));
 
-    attach('btn-rematch', () => {
-        hideModal();
-        initTournament();
-    });
     attach('btn-menu', () => {
-        hideModal();
+        document.getElementById('result-modal').classList.remove('active');
         showScreen('main-menu');
     });
 
@@ -145,7 +148,7 @@ function initTournament() {
     // AUDIO: Play Start Sound & BGM
     if (window.audioManager) {
         window.audioManager.play('start');
-        window.audioManager.playBGM('bgm_drum');
+        window.audioManager.playBGM('bgm');
     }
 
     let pool = [...DIGIMON_DATABASE];
@@ -253,7 +256,6 @@ function startCurrentMatch() {
     const match = t.currentRound[t.currentMatchIndex];
     if (match.status === 'completed') return;
 
-    // AUDIO: Start Fight Sound
     if (window.audioManager) window.audioManager.play('start');
 
     GameState.champion = JSON.parse(JSON.stringify(match.p1));
@@ -278,24 +280,81 @@ function advanceToNextRound() {
     t.roundIndex++;
     generateUnknownRound(winners);
     updateBracketUI();
-
-    // AUDIO: Cheers for next round
     if (window.audioManager) window.audioManager.play('cheer');
 }
 
-function showTournamentWinner() {
-    // AUDIO: Victory Fanfare
-    if (window.audioManager) {
-        window.audioManager.stopBGM();
-        window.audioManager.play('win');
+
+// --- MODAL & BATTLE LOGIC ---
+
+function handleMatchEnd(championWon) {
+    const t = GameState.tournament;
+    const match = t.currentRound[t.currentMatchIndex];
+    if (!match) return;
+
+    match.status = 'completed';
+    match.winner = championWon ? match.p1 : match.p2;
+
+    if (window.audioManager) window.audioManager.play('cheer');
+
+    addBattleLog(`🏆 Winner: ${match.winner.name}!`, 'log-heal');
+
+    setTimeout(() => {
+        showMatchWinnerModal(match.winner);
+    }, 1500); // Slightly longer delay to let the lethal effect settle
+}
+
+function showMatchWinnerModal(winner) {
+    const modal = document.getElementById('result-modal');
+    const icon = document.getElementById('result-icon');
+    const title = document.getElementById('result-title');
+    const message = document.getElementById('result-message');
+    const btn = document.getElementById('btn-rematch');
+
+    if (icon) icon.textContent = '🏅';
+    if (title) title.textContent = 'MATCH WINNER';
+
+    let img = document.getElementById('winner-reveal-img');
+    if (!img) {
+        img = document.createElement('img');
+        img.id = 'winner-reveal-img';
+        img.className = 'winner-reveal-img';
+        const content = document.querySelector('.modal-content');
+        if (content) content.insertBefore(img, title.nextSibling);
+    }
+    img.src = winner.image;
+
+    if (message) message.innerHTML = `
+        <div style="font-size:1.8rem; color:#facc15; margin:10px 0;">${winner.name}</div>
+        ADVANCES TO THE NEXT ROUND!
+    `;
+
+    if (btn) {
+        btn.textContent = "CONTINUE TO BRACKET ➡️";
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+        newBtn.addEventListener('click', () => {
+            document.getElementById('result-modal').classList.remove('active');
+            GameState.tournament.currentMatchIndex++;
+            showScreen('tournament-screen');
+            updateBracketUI();
+        });
     }
 
+    if (modal) modal.classList.add('active');
+}
+
+function showTournamentWinner() {
     const winner = GameState.tournament.currentRound[0].winner;
     const modal = document.getElementById('result-modal');
     const icon = document.getElementById('result-icon');
     const title = document.getElementById('result-title');
     const message = document.getElementById('result-message');
     const btn = document.getElementById('btn-rematch');
+
+    if (window.audioManager) {
+        window.audioManager.stopBGM();
+        window.audioManager.play('win');
+    }
 
     if (icon) icon.textContent = '👑';
     if (title) title.textContent = 'WORLD CHAMPION';
@@ -312,15 +371,23 @@ function showTournamentWinner() {
 
     if (message) message.innerHTML = `
         <div style="font-size:2rem; color:#facc15; margin:10px 0;">${winner.name}</div>
-        has conquered the Animal World Cup!
+        HAS CONQUERED THE ANIMAL WORLD CUP!
     `;
-    if (btn) btn.textContent = "Start New Cup";
+
+    if (btn) {
+        btn.textContent = "🏆 START NEW CUP";
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+        newBtn.addEventListener('click', () => {
+            document.getElementById('result-modal').classList.remove('active');
+            initTournament();
+        });
+    }
 
     if (modal) modal.classList.add('active');
 }
 
-
-// --- ROBUST BATTLE ENGINE (With Audio) ---
+// --- BATTLE EXECUTION ---
 
 function initBattleUI() {
     const setInfo = (prefix, fighter) => {
@@ -335,14 +402,6 @@ function initBattleUI() {
 
     updateHP('champion');
     updateHP('challenger');
-
-    const pMp = document.getElementById('player-mp-bar');
-    const eMp = document.getElementById('enemy-mp-bar');
-    if (pMp) pMp.style.display = 'none';
-    if (eMp) eMp.style.display = 'none';
-
-    document.querySelector('.player-card').classList.remove('low-hp', 'hit-shake');
-    document.querySelector('.enemy-card').classList.remove('low-hp', 'hit-shake');
 
     const container = document.getElementById('action-buttons');
     if (container) {
@@ -403,7 +462,6 @@ function executeTurn(attackerSide) {
 
     addBattleLog(`${attacker.name} uses ${selectedSkill.name}!`, 'log-info');
 
-    // AUDIO: Attack Start (Swing)
     if (window.audioManager) window.audioManager.play('hit_fast', { volume: 0.5 });
 
     const imgId = attackerSide === 'champion' ? 'player-img' : 'enemy-img';
@@ -416,19 +474,33 @@ function executeTurn(attackerSide) {
     setTimeout(() => {
         if (!GameState.battleInProgress) return;
 
-        // AUDIO: Impact Sound
+        // LETHAL CHECK
+        const currentDefHP = defenderSide === 'challenger' ? GameState.challengerCurrentHP : GameState.championCurrentHP;
+        const isLethal = finalDamage >= currentDefHP;
+
+        // VISUALS & SOUNDS
         if (window.audioManager) {
-            if (isCrit || finalDamage > 30) {
+            if (isLethal) {
+                // FATALITY SFX
                 window.audioManager.play('roar');
+                window.audioManager.play('hit_heavy', { volume: 1.5 });
+            } else if (isCrit || finalDamage > 30) {
                 window.audioManager.play('hit_heavy', { volume: 1.0 });
-            } else if (typeMultiplier > 1.2) {
-                window.audioManager.play('hit_heavy', { volume: 0.8 });
             } else {
-                window.audioManager.play('hit_heavy', { volume: 0.6 }); // Use heavy as base hit for satisfaction
+                window.audioManager.play('hit_heavy', { volume: 0.6 });
             }
         }
 
-        if (finalDamage > 25 || isCrit) shakeScreen();
+        if (isLethal) {
+            shakeScreen(true); // Intense shake
+            const flash = document.createElement('div');
+            flash.className = 'flash-overlay';
+            document.body.appendChild(flash);
+            setTimeout(() => flash.remove(), 600);
+        } else if (finalDamage > 25 || isCrit) {
+            shakeScreen(false);
+        }
+
         playSkillVFX(selectedSkill.type || 'normal', defenderSide);
 
         if (defenderSide === 'challenger') {
@@ -438,21 +510,23 @@ function executeTurn(attackerSide) {
         }
         updateHP(defenderSide);
 
-        const defCardClass = defenderSide === 'champion' ? '.player-card' : '.enemy-card';
-        const defCard = document.querySelector(defCardClass);
-        if (defCard) {
-            defCard.classList.add('hit-shake');
-            setTimeout(() => defCard.classList.remove('hit-shake'), 400);
-        }
-
-        showFloatingDamage(finalDamage, defenderSide, isCrit);
+        showFloatingDamage(finalDamage, defenderSide, isCrit || isLethal); // Lethal is red logic usually
 
         let dmgMsg = `>> ${finalDamage} damage!`;
-        if (isCrit) dmgMsg += ' CRITICAL!';
+        if (isLethal) dmgMsg += ' FATAL BLOW!!!';
+        else if (isCrit) dmgMsg += ' CRITICAL!';
         else if (typeMultiplier > 1.2) dmgMsg += ' SUPER EFFECTIVE!';
         addBattleLog(dmgMsg, attackerSide === 'champion' ? 'log-damage' : 'log-damage-enemy');
 
-        checkBattleEnd();
+        if (isLethal) {
+            // Dramatic pause before end
+            GameState.battleInProgress = false;
+            setTimeout(() => {
+                handleMatchEnd(GameState.championCurrentHP > 0);
+            }, 1000);
+        } else {
+            checkBattleEnd();
+        }
 
     }, 300);
 }
@@ -468,93 +542,73 @@ function checkBattleEnd() {
     }
 }
 
-function handleMatchEnd(championWon) {
-    const t = GameState.tournament;
-    const match = t.currentRound[t.currentMatchIndex];
-    if (!match) return;
-
-    match.status = 'completed';
-    match.winner = championWon ? match.p1 : match.p2;
-
-    // AUDIO: Match Winner sound (short cheer or click)
-    if (window.audioManager) {
-        window.audioManager.play('ui_click');
-    }
-
-    addBattleLog(`🏆 Winner: ${match.winner.name}!`, 'log-heal');
-
-    setTimeout(() => {
-        t.currentMatchIndex++;
-        showScreen('tournament-screen');
-        updateBracketUI();
-    }, 2000);
-}
-
-// --- HELPERS (Same as before) ---
-// ... (Including shakeScreen, playSkillVFX, showFloatingDamage, updateHP, addBattleLog, hideModal, renderCollectionGrid, getTypeMultiplier)
-
-function shakeScreen() {
+function shakeScreen(isIntense = false) {
     const app = document.getElementById('app');
     if (!app) return;
+
+    // Reset animation hack
+    app.classList.remove('screen-shake');
+    void app.offsetHeight;
     app.classList.add('screen-shake');
-    setTimeout(() => app.classList.remove('screen-shake'), 400);
+
+    if (isIntense) {
+        app.style.animationDuration = '0.8s';
+    } else {
+        app.style.animationDuration = '0.4s';
+    }
+
+    setTimeout(() => {
+        app.classList.remove('screen-shake');
+        app.style.animationDuration = '';
+    }, isIntense ? 800 : 400);
 }
+
+// ... STANDARD UTILS (playSkillVFX, showFloatingDamage, updateHP, addBattleLog, renderCollectionGrid, getTypeMultiplier) ...
+// (Re-including them here to be complete and avoid cutting off the file)
 
 function playSkillVFX(type, targetSide) {
     const container = document.getElementById('fx-container');
     if (!container) return;
-
     const vfx = document.createElement('div');
     const targetSelector = targetSide === 'champion' ? '.player-card' : '.enemy-card';
     const targetEl = document.querySelector(targetSelector);
     if (!targetEl) return;
-
     const rect = targetEl.getBoundingClientRect();
     const arenaRect = document.querySelector('.battle-arena').getBoundingClientRect();
-
     vfx.style.left = (rect.left - arenaRect.left + (rect.width / 2)) + 'px';
     vfx.style.top = (rect.top - arenaRect.top + (rect.height / 2)) + 'px';
     vfx.style.transform = 'translate(-50%, -50%)';
-
     if (type === 'fire') vfx.className = 'vfx-fire';
     else if (type === 'water' || type === 'nature') vfx.className = 'vfx-ice';
     else if (type === 'dark') vfx.className = 'vfx-dark';
     else vfx.className = 'vfx-ice';
-
     container.appendChild(vfx);
     setTimeout(() => vfx.remove(), 1000);
 }
-
 function showFloatingDamage(amount, targetSide, isCrit) {
     const container = document.getElementById('fx-container');
     if (!container) return;
-
     const el = document.createElement('div');
     el.className = isCrit ? 'floating-damage floating-dmg-crit' : 'floating-damage';
     el.textContent = amount;
-
     const targetSelector = targetSide === 'champion' ? '.player-card' : '.enemy-card';
     const targetEl = document.querySelector(targetSelector);
     if (!targetEl) return;
-
     const rect = targetEl.getBoundingClientRect();
     const arenaRect = document.querySelector('.battle-arena').getBoundingClientRect();
     const randomX = (Math.random() * 40) - 20;
-
     el.style.left = (rect.left - arenaRect.left + (rect.width / 2) + randomX) + 'px';
     el.style.top = (rect.top - arenaRect.top) + 'px';
     el.style.color = targetSide === 'champion' ? '#ff4444' : '#ffffff';
+    el.style.fontSize = isCrit ? '2.5rem' : '1.5rem';
     el.style.zIndex = 50;
-
     container.appendChild(el);
     setTimeout(() => el.remove(), 1500);
 }
-
 function updateHP(side) {
     const currentHP = side === 'champion' ? GameState.championCurrentHP : GameState.challengerCurrentHP;
     const maxHP = 100;
     const percentage = Math.max(0, (currentHP / maxHP) * 100);
-
     const prefix = side === 'champion' ? 'player' : 'enemy';
     const hpBar = document.getElementById(`${prefix}-hp-bar`);
     if (hpBar) {
@@ -572,10 +626,6 @@ function addBattleLog(message, className = '') {
     entry.textContent = message;
     log.appendChild(entry);
     log.scrollTop = log.scrollHeight;
-}
-function hideModal() {
-    const modal = document.getElementById('result-modal');
-    if (modal) modal.classList.remove('active');
 }
 function renderCollectionGrid() {
     const grid = document.getElementById('collection-grid');
