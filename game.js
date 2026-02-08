@@ -57,13 +57,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+
     // Update Menu Text
     const title = document.querySelector('#main-menu h1');
     if (title) title.textContent = "ANIMAL KING WORLD CUP";
     const sub = document.querySelector('#main-menu .subtitle');
-    if (sub) sub.textContent = "16 Elite Beasts. Full Audio Experience.";
+    if (sub) sub.textContent = "16 Elite Beasts. Full Auto-Play Experience.";
     const btn = document.getElementById('btn-start');
-    if (btn) btn.innerHTML = "🏆 BEGIN TOURNAMENT 🔊";
+    if (btn) btn.innerHTML = "🏆 START AUTO-TOURNAMENT 🔊";
 
     // Setup Tournament Screen
     if (!document.getElementById('tournament-screen')) {
@@ -164,6 +165,29 @@ function initTournament() {
     generateUnknownRound(GameState.tournament.fighters);
     updateBracketUI();
     showScreen('tournament-screen');
+
+    // Auto-start first match after short delay
+    setTimeout(autoProgressTournament, 2000);
+}
+
+// ... (New Helper for Auto-Play)
+function autoProgressTournament() {
+    const t = GameState.tournament;
+    const pending = t.currentRound.filter(m => m.status !== 'completed').length;
+
+    if (pending > 0) {
+        // Start next match
+        startCurrentMatch();
+    } else {
+        // Round Complete
+        if (t.currentRound.length === 1) {
+            showTournamentWinner();
+        } else {
+            advanceToNextRound();
+            // Automatically start next round's first match
+            setTimeout(autoProgressTournament, 2000);
+        }
+    }
 }
 
 function generateUnknownRound(participants) {
@@ -188,11 +212,15 @@ function updateBracketUI() {
     grid.innerHTML = '';
 
     const title = document.getElementById('round-title');
-    if (title) title.textContent = ROUND_NAMES[t.roundIndex] || "TOURNAMENT";
+    if (title) title.textContent = `${ROUND_NAMES[t.roundIndex]} (AUTO)`;
 
     const pending = t.currentRound.filter(m => m.status !== 'completed').length;
     const subtitle = document.getElementById('round-subtitle');
-    if (subtitle) subtitle.textContent = pending === 0 ? "Round Complete! Proceeding..." : `${pending} Matches Remaining`;
+
+    if (subtitle) {
+        if (pending > 0) subtitle.textContent = `Next Match Starting in 3s...`;
+        else subtitle.textContent = "Round Complete! Advancing...";
+    }
 
     t.currentRound.forEach((match, index) => {
         const card = document.createElement('div');
@@ -215,24 +243,9 @@ function updateBracketUI() {
         grid.appendChild(card);
     });
 
+    // Hide manual button or make it 'Skip'
     const btn = document.getElementById('btn-next-match');
-    if (btn) {
-        const newBtn = btn.cloneNode(true);
-        btn.parentNode.replaceChild(newBtn, btn);
-
-        if (pending === 0) {
-            if (t.currentRound.length === 1) {
-                newBtn.textContent = "VIEW FINAL RESULTS 🏆";
-                newBtn.addEventListener('click', showTournamentWinner);
-            } else {
-                newBtn.textContent = "START NEXT ROUND ➡️";
-                newBtn.addEventListener('click', advanceToNextRound);
-            }
-        } else {
-            newBtn.textContent = "START MATCH ⚔️";
-            newBtn.addEventListener('click', startCurrentMatch);
-        }
-    }
+    if (btn) btn.style.display = 'none'; // Auto-play hides this
 }
 
 function renderMiniFighter(fighter, isWinner, isLoser) {
@@ -323,24 +336,37 @@ function showMatchWinnerModal(winner) {
     }
     img.src = winner.image;
 
+    // Show Countdown
     if (message) message.innerHTML = `
         <div style="font-size:1.8rem; color:#facc15; margin:10px 0;">${winner.name}</div>
-        ADVANCES TO THE NEXT ROUND!
+        <div>ADVANCES TO THE NEXT ROUND!</div>
+        <div style="font-size:0.9rem; margin-top:10px; color:#aaa;">Next match in <span id="auto-timer">3</span>...</div>
     `;
 
-    if (btn) {
-        btn.textContent = "CONTINUE TO BRACKET ➡️";
-        const newBtn = btn.cloneNode(true);
-        btn.parentNode.replaceChild(newBtn, btn);
-        newBtn.addEventListener('click', () => {
+    if (btn) btn.style.display = 'none'; // Hide button for auto mode
+
+    if (modal) modal.classList.add('active');
+
+    // Auto-Advance logic
+    let seconds = 3;
+    const timerInterval = setInterval(() => {
+        seconds--;
+        const timerEl = document.getElementById('auto-timer');
+        if (timerEl) timerEl.textContent = seconds;
+
+        if (seconds <= 0) {
+            clearInterval(timerInterval);
             document.getElementById('result-modal').classList.remove('active');
+
+            // Logic to move next
             GameState.tournament.currentMatchIndex++;
             showScreen('tournament-screen');
             updateBracketUI();
-        });
-    }
 
-    if (modal) modal.classList.add('active');
+            // Trigger next match auto
+            setTimeout(autoProgressTournament, 1500);
+        }
+    }, 1000);
 }
 
 function showTournamentWinner() {
