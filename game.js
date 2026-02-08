@@ -1,5 +1,5 @@
 // ANIMAL KING TOURNAMENT - GAME ENGINE
-// Version: Stable World Cup Bracket
+// Version: Audio Enhanced World Cup
 
 // Game State Management
 const GameState = {
@@ -26,23 +26,36 @@ const ROUND_NAMES = ["ROUND OF 16", "QUARTER FINALS", "SEMI FINALS", "GRAND FINA
 
 // Initialize Game
 document.addEventListener('DOMContentLoaded', () => {
-    // Inject Tournament CSS
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = 'tournament.css';
-    document.head.appendChild(link);
+    // Inject Tournament CSS if missing
+    if (!document.querySelector('link[href="tournament.css"]')) {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'tournament.css';
+        document.head.appendChild(link);
+    }
 
     initParticles();
     initEventListeners();
     renderCollectionGrid();
 
+    // Mute Button Logic
+    const muteBtn = document.getElementById('mute-btn');
+    if (muteBtn) {
+        muteBtn.addEventListener('click', () => {
+            if (window.audioManager) {
+                const isMuted = window.audioManager.toggleMute();
+                muteBtn.textContent = isMuted ? '🔇' : '🔊';
+            }
+        });
+    }
+
     // Update Menu Text
     const title = document.querySelector('#main-menu h1');
     if (title) title.textContent = "ANIMAL KING WORLD CUP";
     const sub = document.querySelector('#main-menu .subtitle');
-    if (sub) sub.textContent = "16 Elite Beasts. Single Elimination.";
+    if (sub) sub.textContent = "16 Elite Beasts. Full Audio Experience.";
     const btn = document.getElementById('btn-start');
-    if (btn) btn.innerHTML = "🏆 BEGIN TOURNAMENT";
+    if (btn) btn.innerHTML = "🏆 BEGIN TOURNAMENT 🔊";
 
     // Setup Tournament Screen
     if (!document.getElementById('tournament-screen')) {
@@ -84,7 +97,12 @@ function initEventListeners() {
         if (el) el.addEventListener('click', fn);
     };
 
-    attach('btn-start', initTournament);
+    // Important: Initialize Audio on first user interaction
+    attach('btn-start', () => {
+        if (window.audioManager) window.audioManager.init();
+        initTournament();
+    });
+
     attach('btn-collection', () => showScreen('collection-screen'));
     attach('btn-howto', () => showScreen('howto-screen'));
     attach('btn-back-collection', () => showScreen('main-menu'));
@@ -124,12 +142,16 @@ function showScreen(screenId) {
 // --- TOURNAMENT ENGINE ---
 
 function initTournament() {
+    // AUDIO: Play Start Sound & BGM
+    if (window.audioManager) {
+        window.audioManager.play('start');
+        window.audioManager.playBGM('bgm_drum');
+    }
+
     let pool = [...DIGIMON_DATABASE];
     pool.sort(() => Math.random() - 0.5);
 
-    // Ensure we have at least 16
     if (pool.length < 16) {
-        // Duplicate if not enough (unlikely with 50+)
         while (pool.length < 16) pool = pool.concat(pool);
     }
 
@@ -192,7 +214,6 @@ function updateBracketUI() {
 
     const btn = document.getElementById('btn-next-match');
     if (btn) {
-        // Clone node to clear listeners
         const newBtn = btn.cloneNode(true);
         btn.parentNode.replaceChild(newBtn, btn);
 
@@ -232,6 +253,9 @@ function startCurrentMatch() {
     const match = t.currentRound[t.currentMatchIndex];
     if (match.status === 'completed') return;
 
+    // AUDIO: Start Fight Sound
+    if (window.audioManager) window.audioManager.play('start');
+
     GameState.champion = JSON.parse(JSON.stringify(match.p1));
     GameState.challenger = JSON.parse(JSON.stringify(match.p2));
     GameState.championCurrentHP = 100;
@@ -254,9 +278,18 @@ function advanceToNextRound() {
     t.roundIndex++;
     generateUnknownRound(winners);
     updateBracketUI();
+
+    // AUDIO: Cheers for next round
+    if (window.audioManager) window.audioManager.play('cheer');
 }
 
 function showTournamentWinner() {
+    // AUDIO: Victory Fanfare
+    if (window.audioManager) {
+        window.audioManager.stopBGM();
+        window.audioManager.play('win');
+    }
+
     const winner = GameState.tournament.currentRound[0].winner;
     const modal = document.getElementById('result-modal');
     const icon = document.getElementById('result-icon');
@@ -287,7 +320,7 @@ function showTournamentWinner() {
 }
 
 
-// --- ROBUST BATTLE ENGINE ---
+// --- ROBUST BATTLE ENGINE (With Audio) ---
 
 function initBattleUI() {
     const setInfo = (prefix, fighter) => {
@@ -334,7 +367,6 @@ function nextTurn() {
         }
     } catch (e) {
         console.error("Battle Error:", e);
-        // Force continue to avoid stuck game
         GameState.isChampionTurn = !GameState.isChampionTurn;
         setTimeout(nextTurn, 1000);
     }
@@ -369,10 +401,11 @@ function executeTurn(attackerSide) {
         isCrit = true;
     }
 
-    // 1. Log Attack
     addBattleLog(`${attacker.name} uses ${selectedSkill.name}!`, 'log-info');
 
-    // 2. Animation (Lunge)
+    // AUDIO: Attack Start (Swing)
+    if (window.audioManager) window.audioManager.play('hit_fast', { volume: 0.5 });
+
     const imgId = attackerSide === 'champion' ? 'player-img' : 'enemy-img';
     const attackerImg = document.getElementById(imgId);
     if (attackerImg) {
@@ -380,15 +413,24 @@ function executeTurn(attackerSide) {
         setTimeout(() => attackerImg.classList.remove(attackerSide === 'champion' ? 'attack-lunge' : 'enemy-lunge'), 300);
     }
 
-    // 3. Impact & Damage (Delayed)
     setTimeout(() => {
-        if (!GameState.battleInProgress) return; // Double check
+        if (!GameState.battleInProgress) return;
 
-        // Visuals
+        // AUDIO: Impact Sound
+        if (window.audioManager) {
+            if (isCrit || finalDamage > 30) {
+                window.audioManager.play('roar');
+                window.audioManager.play('hit_heavy', { volume: 1.0 });
+            } else if (typeMultiplier > 1.2) {
+                window.audioManager.play('hit_heavy', { volume: 0.8 });
+            } else {
+                window.audioManager.play('hit_heavy', { volume: 0.6 }); // Use heavy as base hit for satisfaction
+            }
+        }
+
         if (finalDamage > 25 || isCrit) shakeScreen();
         playSkillVFX(selectedSkill.type || 'normal', defenderSide);
 
-        // Apply HP
         if (defenderSide === 'challenger') {
             GameState.challengerCurrentHP = Math.max(0, GameState.challengerCurrentHP - finalDamage);
         } else {
@@ -396,7 +438,6 @@ function executeTurn(attackerSide) {
         }
         updateHP(defenderSide);
 
-        // Hit Shake
         const defCardClass = defenderSide === 'champion' ? '.player-card' : '.enemy-card';
         const defCard = document.querySelector(defCardClass);
         if (defCard) {
@@ -423,7 +464,6 @@ function checkBattleEnd() {
         handleMatchEnd(championWon);
     } else {
         GameState.isChampionTurn = !GameState.isChampionTurn;
-        // Schedule next turn safely
         setTimeout(nextTurn, 1000);
     }
 }
@@ -436,6 +476,11 @@ function handleMatchEnd(championWon) {
     match.status = 'completed';
     match.winner = championWon ? match.p1 : match.p2;
 
+    // AUDIO: Match Winner sound (short cheer or click)
+    if (window.audioManager) {
+        window.audioManager.play('ui_click');
+    }
+
     addBattleLog(`🏆 Winner: ${match.winner.name}!`, 'log-heal');
 
     setTimeout(() => {
@@ -445,7 +490,8 @@ function handleMatchEnd(championWon) {
     }, 2000);
 }
 
-// --- HELPERS ---
+// --- HELPERS (Same as before) ---
+// ... (Including shakeScreen, playSkillVFX, showFloatingDamage, updateHP, addBattleLog, hideModal, renderCollectionGrid, getTypeMultiplier)
 
 function shakeScreen() {
     const app = document.getElementById('app');
